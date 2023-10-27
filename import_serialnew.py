@@ -1,11 +1,19 @@
 import serial
 import time
+import string
 
 class ArduinoCommunicator:
-    def __init__(self, port='COM4', baud_rate=115200):
+    def __init__(self, port='COM3', baud_rate=115200):
         self.ser = serial.Serial(port, baud_rate, timeout=1)
         time.sleep(2)  # A short delay after initializing the connection
         self._read_from_arduino()  # Clear out initial messages
+        
+    def flush_input(self):
+        self.ser.flushInput()
+
+    def flush_output(self):
+        self.ser.flushOutput()
+
 
     def send_data(self, data):
         self.ser.write(data.encode())
@@ -38,6 +46,12 @@ class ArduinoCommunicator:
     def __exit__(self, exc_type, exc_value, traceback):
         self.close()
 
+def hex_to_ascii(hex_string):
+    """Convert a hexadecimal string to its ASCII representation."""
+    try:
+        return bytearray.fromhex(hex_string).decode('utf-8', 'ignore')
+    except:
+        return "Invalid Hex"
 
 
 def main():
@@ -54,17 +68,23 @@ def main():
                 return
 
             # Set the state matrix
+            arduino.flush_input()
             responses = arduino.send_data("0" + message)
+            arduino.flush_output()
             for resp in responses:
                 print(resp)
 
             # Send encrypt command
+            arduino.flush_input()
             responses = arduino.send_data("1")
+            arduino.flush_output()
             for resp in responses:
                 print(resp)
 
             # Get the encrypted result
+            arduino.flush_input()
             responses = arduino.send_data("2")
+            arduino.flush_output()
             for resp in responses:
                 if all(c in string.printable for c in resp):  # import string at the top
                     print("Decrypted message from Arduino:", resp)
@@ -79,19 +99,34 @@ def main():
                 return
 
             # Set the state matrix
+            arduino.flush_input()
             responses = arduino.send_data("0" + message)
+            arduino.flush_output()
             for resp in responses:
                 print(resp)
 
             # Send decrypt command
+            arduino.flush_input()
             responses = arduino.send_data("3")
+            arduino.flush_output()
             for resp in responses:
                 print(resp)
 
             # Get the decrypted result
+            arduino.flush_input()
             responses = arduino.send_data("2")
+            arduino.flush_output()
             for resp in responses:
-                print("Decrypted message from Arduino:", resp)
+                segments = resp.split('\n')  # Split on line breaks
+                for segment in segments:
+                    if segment:
+                        # If the segment is hex-like, try converting it
+                        if all(c in string.hexdigits for c in segment):
+                            print("Decrypted message from Arduino:", hex_to_ascii(segment))
+                        else:
+                            print(segment)
+
+
 
         else:
             print("Invalid choice.")
